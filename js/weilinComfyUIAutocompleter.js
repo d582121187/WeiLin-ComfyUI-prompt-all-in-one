@@ -568,34 +568,124 @@ app.registerExtension({
 		// new TextAreaAutoComplete(r.widget.inputEl, words, separator)
 
 		if(!onlyOne){
-			onlyOne = true
-			document.addEventListener('weilinInitCompletePrompt', e => {
-				const iframeBox = document.getElementById("weilin_prompt_global_box")
-				const Inselement1 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_great_ins_autocom")
-				const Inselement2 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_neg_ins_autocom")
-				const element1 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_text_input")
-				const element2 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_text_neg_input")
-				new TextAreaAutoComplete(element1,iframeBox,Inselement1)
-				new TextAreaAutoComplete(element2,iframeBox,Inselement2)
-			}, false);
-			document.addEventListener('weilinInitCompleteNegPrompt', e => {
-				const iframeBox = document.getElementById("weilin_prompt_neg_box")
-				const Inselement1 = window.frames['weilin_prompt_neg_box'].document.getElementById("weilin_prompt_great_ins_autocom")
-				const Inselement2 = window.frames['weilin_prompt_neg_box'].document.getElementById("weilin_prompt_neg_ins_autocom")
-				const element3 = window.frames['weilin_prompt_neg_box'].document.getElementById("weilin_prompt_text_input")
-				const element4 = window.frames['weilin_prompt_neg_box'].document.getElementById("weilin_prompt_text_neg_input")
-				new TextAreaAutoComplete(element3,iframeBox,Inselement1)
-				new TextAreaAutoComplete(element4,iframeBox,Inselement2)
-			}, false);
-			document.addEventListener('weilinInitCompleteGlobalPrompt', e => {
-				const iframeBox = document.getElementById("weilin_prompt_global_box")
-				const Inselement1 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_great_ins_autocom")
-				const Inselement2 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_neg_ins_autocom")
-				const element1 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_text_input")
-				const element2 = window.frames['weilin_prompt_global_box'].document.getElementById("weilin_prompt_text_neg_input")
-				new TextAreaAutoComplete(element1,iframeBox,Inselement1)
-				new TextAreaAutoComplete(element2,iframeBox,Inselement2)
-			}, false);
+			onlyOne = true;
+
+			function tryBindAppendInputs(frameName) {
+				try {
+					const iframeBox = document.getElementById(frameName);
+					if (!iframeBox) return false;
+					const win = window.frames[frameName];
+					if (!win || !win.document) return false;
+					const frameDoc = win.document;
+
+					const Inselement1 = frameDoc.getElementById("weilin_prompt_great_ins_autocom");
+					const Inselement2 = frameDoc.getElementById("weilin_prompt_neg_ins_autocom");
+					const element1 = frameDoc.getElementById("weilin_prompt_text_input");
+					const element2 = frameDoc.getElementById("weilin_prompt_text_neg_input");
+
+					if (element1 && Inselement1 && !element1._weilinAC) {
+						element1._weilinAC = true;
+						new TextAreaAutoComplete(element1, iframeBox, Inselement1);
+					}
+					if (element2 && Inselement2 && !element2._weilinAC) {
+						element2._weilinAC = true;
+						new TextAreaAutoComplete(element2, iframeBox, Inselement2);
+					}
+
+					// 中间「请输入关键词」输入框
+					const selectors = [
+						"textarea.input-tag-append",
+						"textarea.scroll-hide.input-tag-append",
+						"textarea[placeholder*='关键词']",
+						"textarea[placeholder*='keyword']",
+						".input-tag-append"
+					];
+					let found = false;
+					for (const sel of selectors) {
+						const nodes = frameDoc.querySelectorAll(sel);
+						nodes.forEach((el) => {
+							if (el && el.tagName === "TEXTAREA" && !el._weilinAC) {
+								el._weilinAC = true;
+								// 关键：用中间输入框自己的父容器挂下拉，避免挡住主编辑区/自己
+								let localIns = el.parentElement;
+								if (localIns) {
+									// 确保父级可定位
+									const pos = window.getComputedStyle(localIns).position;
+									if (pos === "static" || !pos) {
+										localIns.style.position = "relative";
+									}
+								} else {
+									localIns = el;
+								}
+								const ac = new TextAreaAutoComplete(el, iframeBox, localIns);
+								// 选中候选后自动回车，直接加入主编辑框
+								if (ac && ac.helper && ac.helper.insertAtCursor) {
+									const origInsert = ac.helper.insertAtCursor.bind(ac.helper);
+									ac.helper.insertAtCursor = function(value, offset, finalOffset) {
+										origInsert(value, offset, finalOffset);
+										setTimeout(() => {
+											try {
+												el.dispatchEvent(new KeyboardEvent("keydown", {
+													key: "Enter",
+													code: "Enter",
+													keyCode: 13,
+													which: 13,
+													bubbles: true,
+													cancelable: true
+												}));
+											} catch (e) {
+												console.warn("[WeiLin] auto-enter failed", e);
+											}
+										}, 20);
+									};
+								}
+								// 微调下拉样式，避免过长遮挡
+								if (ac && ac.dropdown) {
+									const styleDropdown = () => {
+										if (!ac.dropdown) return;
+										ac.dropdown.style.maxHeight = "220px";
+										ac.dropdown.style.overflowY = "auto";
+										ac.dropdown.style.zIndex = "9999";
+										ac.dropdown.style.width = "min(420px, 90vw)";
+									};
+									styleDropdown();
+									// 每次更新后也应用一次
+									const origUpdate = ac._update || ac["#update"];
+								}
+								found = true;
+								console.log("[WeiLin] AutoComplete bound to append input (local dropdown + auto-enter):", el);
+							}
+						});
+					}
+					return found;
+				} catch (err) {
+					console.warn("[WeiLin] AutoComplete bind error:", err);
+					return false;
+				}
+			}
+
+			function bindAll() {
+				tryBindAppendInputs("weilin_prompt_global_box");
+				tryBindAppendInputs("weilin_prompt_neg_box");
+				// 也扫描页面上所有 iframe（防止 id 变化）
+				document.querySelectorAll("iframe").forEach((iframe) => {
+					try {
+						const name = iframe.name || iframe.id;
+						if (name) tryBindAppendInputs(name);
+					} catch (e) {}
+				});
+			}
+
+			document.addEventListener("weilinInitCompletePrompt", bindAll, false);
+			document.addEventListener("weilinInitCompleteNegPrompt", bindAll, false);
+			document.addEventListener("weilinInitCompleteGlobalPrompt", bindAll, false);
+
+			// 多次延迟重试，覆盖异步渲染
+			[500, 1500, 3000, 5000, 8000].forEach((ms) => setTimeout(bindAll, ms));
+
+			// MutationObserver 监听 iframe 内容变化
+			const obs = new MutationObserver(() => bindAll());
+			obs.observe(document.body, { childList: true, subtree: true });
 		}
 
 
