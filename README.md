@@ -1,3 +1,36 @@
+# 本分支额外改进
+
+> 本仓库基于 [xunying7860/WeiLin-ComfyUI-prompt-all-in-one](https://github.com/xunying7860/WeiLin-ComfyUI-prompt-all-in-one) 继续修改。  
+> 原作者 weilin9999 仓库已归档，维护分支来自 xunying7860。
+
+## 本分支新增 / 改进功能
+
+1. **提示词补全支持中英文双显示**  
+   补全列表可显示「英文 🔄️ 中文」形式（需使用带中文翻译的标签库）。
+
+2. **标签背景色在空格分隔或加权时仍保持**  
+   支持 `from side` 与 `from_side`、以及 `(tag:1.2)` 等形式，标签背景颜色仍能正确匹配。
+
+3. **中间「请输入关键词」输入框支持完整模糊补全**  
+   与主编辑框使用同一套补全逻辑，选中后自动加入主提示词列表。
+
+4. **可视化 PromptUI 悬浮窗记住宽高与位置**  
+   调整窗口大小/位置后关闭，再次打开会恢复上次状态。
+
+## 致谢
+
+- 原作者：[weilin9999](https://github.com/weilin9999) — 创建了本插件
+- 维护者：[xunying7860](https://github.com/xunying7860) — 在原版归档后继续维护、扩展 Tag 库并修复 Bug，本分支基于其成果
+- 本分支部分修改借助 AI 工具完成，在此感谢：
+  - [Grok](https://grok.com)（xAI）
+  - Kimi
+  - DeepSeek
+  等 AI 助手在代码分析与修改过程中提供的帮助
+
+## 最后
+> 该插件仍需修改才能有较好的体验
+> (还有，本人不会半个代码，全是问AI跑的，有问题请找原作者/其余维护者)
+---
 <div align="center">
   
 ### [🇨🇳 简体中文](README.md) | [🇺🇸 English](README_EN.md)
