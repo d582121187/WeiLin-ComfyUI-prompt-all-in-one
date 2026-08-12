@@ -134,14 +134,22 @@ app.registerExtension({
               iframeEle.style.borderTopLeftRadius = "0px"
               titleBar.style.display = "flex";
               resizeHandle.style.display = "block";
-              ifreamBox.style.width = "80%";
-              ifreamBox.style.height = "80%";
+              var savedW = localStorage.getItem("weilin_prompt_ui_window_width");
+              var savedH = localStorage.getItem("weilin_prompt_ui_window_height");
+              var savedL = localStorage.getItem("weilin_prompt_ui_window_left");
+              var savedT = localStorage.getItem("weilin_prompt_ui_window_top");
+              ifreamBox.style.width = (savedW && savedW.length > 0) ? savedW : "80%";
+              ifreamBox.style.height = (savedH && savedH.length > 0) ? savedH : "80%";
               ifreamBox.style.display = "flex"
               var divWidth = ifreamBox.offsetWidth;
               var divHeight = ifreamBox.offsetHeight;
-              // 重新计算div的left和top值
-              ifreamBox.style.left = (window.innerWidth - divWidth) / 2 + 'px';
-              ifreamBox.style.top = (window.innerHeight - divHeight) / 2 + 'px';
+              if (savedL && savedL.length > 0 && savedT && savedT.length > 0) {
+                  ifreamBox.style.left = savedL;
+                  ifreamBox.style.top = savedT;
+              } else {
+                  ifreamBox.style.left = (window.innerWidth - divWidth) / 2 + 'px';
+                  ifreamBox.style.top = (window.innerHeight - divHeight) / 2 + 'px';
+              }
           }
         });
 
@@ -265,14 +273,22 @@ app.registerExtension({
                 iframeEle.style.borderTopLeftRadius = "0px"
                 titleBar.style.display = "flex";
                 resizeHandle.style.display = "block";
-                ifreamBox.style.width = "80%";
-                ifreamBox.style.height = "80%";
+                var savedW = localStorage.getItem("weilin_prompt_ui_window_width");
+                var savedH = localStorage.getItem("weilin_prompt_ui_window_height");
+                var savedL = localStorage.getItem("weilin_prompt_ui_window_left");
+                var savedT = localStorage.getItem("weilin_prompt_ui_window_top");
+                ifreamBox.style.width = (savedW && savedW.length > 0) ? savedW : "80%";
+                ifreamBox.style.height = (savedH && savedH.length > 0) ? savedH : "80%";
                 ifreamBox.style.display = "flex"
                 var divWidth = ifreamBox.offsetWidth;
                 var divHeight = ifreamBox.offsetHeight;
-                // 重新计算div的left和top值
-                ifreamBox.style.left = (window.innerWidth - divWidth) / 2 + 'px';
-                ifreamBox.style.top = (window.innerHeight - divHeight) / 2 + 'px';
+                if (savedL && savedL.length > 0 && savedT && savedT.length > 0) {
+                    ifreamBox.style.left = savedL;
+                    ifreamBox.style.top = savedT;
+                } else {
+                    ifreamBox.style.left = (window.innerWidth - divWidth) / 2 + 'px';
+                    ifreamBox.style.top = (window.innerHeight - divHeight) / 2 + 'px';
+                }
             }
           }
         }, false);
