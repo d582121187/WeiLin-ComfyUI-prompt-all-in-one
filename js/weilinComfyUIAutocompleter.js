@@ -617,7 +617,7 @@ app.registerExtension({
 								} else {
 									localIns = el;
 								}
-								const ac = new TextAreaAutoComplete(el, iframeBox, localIns);
+								const ac = new TextAreaAutoComplete(el, iframeBox, localIns, null, null, { overlay: true });
 								// 选中候选后自动回车，直接加入主编辑框
 								if (ac && ac.helper && ac.helper.insertAtCursor) {
 									const origInsert = ac.helper.insertAtCursor.bind(ac.helper);

@@ -390,10 +390,11 @@ export class TextAreaAutoComplete {
 	/**
 	 * @param {HTMLTextAreaElement} el
 	 */
-	constructor(el, iframe, insEl, words = null, separator = null) {
+	constructor(el, iframe, insEl, words = null, separator = null, opts = null) {
 		this.el = el;
 		this.iframe = iframe;
 		this.insEl = insEl;
+		this.opts = opts || {};
 		this.helper = new TextAreaCaretHelper(el, () => app.canvas.ds.scale);
 		this.dropdown = $el("div.weilin-autocom-autocomplete");
 		this.overrideWords = words;
@@ -651,24 +652,43 @@ export class TextAreaAutoComplete {
 		this.#setSelected(hasSelected ? this.selected : this.currentWords[0].wordInfo);
 		this.dropdown.replaceChildren(...items);
 
-		if (!this.dropdown.parentElement) {
-			// document.body.append(this.dropdown);
-			this.insEl.append(this.dropdown);
+		if (this.opts.overlay) {
+			// 悬浮层定位：挂到 iframe 的 body 上，按输入框底部弹出，避免被父级 flex 布局挤到右侧
+			const doc = this.el.ownerDocument;
+			const win = (doc && doc.defaultView) || window;
+			if (this.dropdown.parentElement !== doc.body) {
+				doc.body.appendChild(this.dropdown);
+			}
+			const rect = this.el.getBoundingClientRect();
+			this.dropdown.style.position = "fixed";
+			this.dropdown.style.left = rect.left + "px";
+			this.dropdown.style.top = (rect.bottom + 2) + "px";
+			this.dropdown.style.width = Math.max(rect.width, 300) + "px";
+			this.dropdown.style.maxHeight = Math.min(240, Math.max(80, win.innerHeight - rect.bottom - 8)) + "px";
+			this.dropdown.style.overflowY = "auto";
+			this.dropdown.style.zIndex = "99999";
+			this.dropdown.style.backgroundColor = "var(--pp-ph-phe-ec-selectSelectBtn-background)";
+			this.dropdown.style.color = "var(--pp-ph-phe-ec-extendBtnGroup-color)";
+		} else {
+			if (!this.dropdown.parentElement) {
+				// document.body.append(this.dropdown);
+				this.insEl.append(this.dropdown);
+			}
+			this.dropdown.style.position = "static";
+			this.dropdown.style.zIndex = "99";
+			this.dropdown.style.backgroundColor = "var(--pp-ph-phe-ec-selectSelectBtn-background)";
+			this.dropdown.style.color = "var(--pp-ph-phe-ec-extendBtnGroup-color)";
+
+
+			const position = this.helper.getCursorOffset();
+			// this.dropdown.style.left = (position.left ?? 0) + "px";
+			// this.dropdown.style.top = (position.top ?? 0) + "px";
+			// this.dropdown.style.left = (this.el.offsetLeft + this.iframe.offsetLeft)+ "px";
+			// this.dropdown.style.top =  (this.el.offsetTop +  this.el.clientHeight + this.iframe.offsetTop)+ "px";
+			// console.log(this.iframe.contentWindow.document.body.scrollTop,)
+			// console.log(this.dropdown.style.top)
+			this.dropdown.style.maxHeight = (window.innerHeight - position.top) + "px";
 		}
-		this.dropdown.style.position = "static";
-		this.dropdown.style.zIndex = "99";
-		this.dropdown.style.backgroundColor = "var(--pp-ph-phe-ec-selectSelectBtn-background)";
-		this.dropdown.style.color = "var(--pp-ph-phe-ec-extendBtnGroup-color)";
-
-
-		const position = this.helper.getCursorOffset();
-		// this.dropdown.style.left = (position.left ?? 0) + "px";
-		// this.dropdown.style.top = (position.top ?? 0) + "px";
-		// this.dropdown.style.left = (this.el.offsetLeft + this.iframe.offsetLeft)+ "px";
-		// this.dropdown.style.top =  (this.el.offsetTop +  this.el.clientHeight + this.iframe.offsetTop)+ "px";
-		// console.log(this.iframe.contentWindow.document.body.scrollTop,)
-		// console.log(this.dropdown.style.top)
-		this.dropdown.style.maxHeight = (window.innerHeight - position.top) + "px";
 	}
 
 	#hide() {
