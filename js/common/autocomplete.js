@@ -404,7 +404,7 @@ export class TextAreaAutoComplete {
 	}
 
 	#setup() {
-		this.el.addEventListener("keydown", this.#keyDown.bind(this));
+		this.el.addEventListener("keydown", this.#keyDown.bind(this), true);
 		this.el.addEventListener("keypress", this.#keyPress.bind(this));
 		this.el.addEventListener("keyup", this.#keyUp.bind(this));
 		this.el.addEventListener("click", this.#hide.bind(this));
@@ -416,13 +416,17 @@ export class TextAreaAutoComplete {
 	 */
 	#keyDown(e) {
 		if (!TextAreaAutoComplete.enabled) return;
+		// 选中候选后派发的自动回车不再触发选词，避免递归
+		if (e._weilinAutoEnter) return;
 
 		if (this.dropdown.parentElement) {
 			// We are visible
 			switch (e.key) {
 				case "ArrowUp":
 					e.preventDefault();
-					if (this.selected.index) {
+					if (!this.selected) {
+						this.#setSelected(this.currentWords[this.currentWords.length - 1].wordInfo);
+					} else if (this.selected.index) {
 						this.#setSelected(this.currentWords[this.selected.index - 1].wordInfo);
 					} else {
 						this.#setSelected(this.currentWords[this.currentWords.length - 1].wordInfo);
@@ -430,10 +434,23 @@ export class TextAreaAutoComplete {
 					break;
 				case "ArrowDown":
 					e.preventDefault();
-					if (this.selected.index === this.currentWords.length - 1) {
+					if (!this.selected) {
+						this.#setSelected(this.currentWords[0].wordInfo);
+					} else if (this.selected.index === this.currentWords.length - 1) {
 						this.#setSelected(this.currentWords[0].wordInfo);
 					} else {
 						this.#setSelected(this.currentWords[this.selected.index + 1].wordInfo);
+					}
+					break;
+				case "Enter":
+					// 捕获拦截：避免输入框自身的 Enter 逻辑（如中间框把原文再追加一次）先执行
+					if (this.selected && !e.ctrlKey && !e.shiftKey) {
+						e.preventDefault();
+						e.stopPropagation();
+						e.stopImmediatePropagation();
+						if (TextAreaAutoComplete.insertOnEnter) {
+							this.#insertItem();
+						}
 					}
 					break;
 				case "Tab":
@@ -451,6 +468,7 @@ export class TextAreaAutoComplete {
 	 */
 	#keyPress(e) {
 		if (!TextAreaAutoComplete.enabled) return;
+		if (e.defaultPrevented) return;
 		if (this.dropdown.parentElement) {
 			// We are visible
 			switch (e.key) {
@@ -493,8 +511,10 @@ export class TextAreaAutoComplete {
 			this.selected.el.classList.remove("weilin-autocom-autocomplete-item--selected");
 		}
 
-		this.selected = item;
-		this.selected.el.classList.add("weilin-autocom-autocomplete-item--selected");
+		this.selected = item || null;
+		if (this.selected) {
+			this.selected.el.classList.add("weilin-autocom-autocomplete-item--selected");
+		}
 	}
 
 	#insertItem() {
@@ -633,7 +653,7 @@ export class TextAreaAutoComplete {
 						}, 150);
 					},
 					onmousemove: () => {
-						this.#setSelected(wordInfo);
+						// 鼠标划过不改变选中态，避免回车误替换；点击才替换
 					},
 				},
 				parts
@@ -649,7 +669,7 @@ export class TextAreaAutoComplete {
 			return item;
 		});
 
-		this.#setSelected(hasSelected ? this.selected : this.currentWords[0].wordInfo);
+		this.#setSelected(hasSelected ? this.selected : null);
 		this.dropdown.replaceChildren(...items);
 
 		if (this.opts.overlay) {

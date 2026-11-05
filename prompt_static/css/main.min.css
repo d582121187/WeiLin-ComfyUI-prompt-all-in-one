@@ -169,3 +169,5 @@ body.dark #txt2img_neg_prompt>label>textarea::-webkit-scrollbar-track,
 body.dark #txt2img_prompt>label>textarea::-webkit-scrollbar-track {
     background-color: rgba(255, 255, 255, .08)
 }
+/* 修复：隐藏原生输入框后，正向/反向面板挤在一起（相邻 margin 折叠过小） */
+.physton-prompt{margin:5px 0 12px 0 !important;}

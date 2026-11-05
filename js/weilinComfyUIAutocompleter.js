@@ -625,14 +625,16 @@ app.registerExtension({
 										origInsert(value, offset, finalOffset);
 										setTimeout(() => {
 											try {
-												el.dispatchEvent(new KeyboardEvent("keydown", {
+												const enterEvt = new KeyboardEvent("keydown", {
 													key: "Enter",
 													code: "Enter",
 													keyCode: 13,
 													which: 13,
 													bubbles: true,
 													cancelable: true
-												}));
+												});
+													enterEvt._weilinAutoEnter = true;
+													el.dispatchEvent(enterEvt);
 											} catch (e) {
 												console.warn("[WeiLin] auto-enter failed", e);
 											}
