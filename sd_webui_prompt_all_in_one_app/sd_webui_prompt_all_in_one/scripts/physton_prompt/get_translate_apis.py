@@ -6,7 +6,18 @@ import sys
 Path = os.path.dirname(__file__)
 sys.path.append(Path)
 
-from storage import Storage
+# 修复(2026-10)：ComfyUI 新增了 comfy/storage.py，且 nodes.py 把 <ComfyUI>/comfy 插到 sys.path 最前面，
+# 于是裸 `from storage import Storage` 会命中 ComfyUI 的同名模块并报 ImportError。
+# 改为包限定导入（与 scripts/on_app_started.py 的写法一致），不再依赖 sys.path 顺序。
+try:
+    from physton_prompt.storage import Storage
+except ModuleNotFoundError as _storage_err:
+    # 兜底：只有「physton_prompt 包本身不可导入」（如以裸模块 / scripts.physton_prompt.* 方式加载）才退回裸导入。
+    # 不用 except ImportError：否则 storage.py 内部的真实 ImportError（例如缺 launch 模块）
+    # 会被同名冲突的报错掩盖，排障时看不到真因。
+    if "physton_prompt" not in str(_storage_err):
+        raise
+    from storage import Storage
 st = Storage()
 
 # from scripts.physton_prompt.storage import Storage

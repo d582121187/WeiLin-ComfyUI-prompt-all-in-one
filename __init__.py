@@ -5,22 +5,22 @@ import os
 import sys
 import subprocess
 
-# 兼容性修复：Python 3.13+ 移除了 pkgutil.ImpImporter，
-# 旧版 setuptools (<70) 的 pkg_resources 会因此崩溃。
-# 先检查 setuptools 版本，过旧则自动升级。
+# 兼容性修复：
+# 1) Python 3.13+ 移除了 pkgutil.ImpImporter，旧版 setuptools(<70) 的 pkg_resources 会因此崩溃；
+# 2) setuptools>=81 直接删除了 pkg_resources，所以「升级 setuptools」永远修不回来
+#    （实测本机 setuptools 84 仍无 pkg_resources，每次启动还白跑一次联网 pip 升级）。
+# 结论：不再依赖 pkg_resources，改用标准库 importlib.metadata 读取已安装版本；
+#      pkg_resources 仅作为旧环境兜底（存在才用，不再尝试联网升级 setuptools）。
 try:
-    import pkg_resources
-except (AttributeError, ImportError) as _pkg_err:
-    print(f"[WeiLin] pkg_resources 导入失败 ({_pkg_err})，尝试升级 setuptools...")
-    try:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "setuptools>=70"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        import pkg_resources  # type: ignore
-        print("[WeiLin] setuptools 升级成功，pkg_resources 已恢复。")
-    except Exception as _upgrade_err:
-        print(f"[WeiLin] setuptools 自动升级失败 ({_upgrade_err})，部分功能可能不可用。")
+    from importlib.metadata import version as _get_pkg_version, PackageNotFoundError as _PkgNotFoundError
+except ImportError:  # Python < 3.8 兜底（正常不会走到）
+    _get_pkg_version = None
+    _PkgNotFoundError = Exception
+
+try:
+    import pkg_resources as _pkg_resources  # noqa: F401
+except (AttributeError, ImportError):
+    _pkg_resources = None
 
 import comfy.lora
 import folder_paths
@@ -29,6 +29,13 @@ import logging
 import re
 import locale
 import shutil
+import threading
+import time as _time
+
+# [P0计时] 插件启动各阶段耗时打点，用于优化前后对比（方案§5）
+_T0 = _time.perf_counter()
+def _mark(what):
+    print(f"[WeiLin] {what}: {(_time.perf_counter() - _T0) * 1000:.0f} ms")
 
 
 # 正向提示词 STRING
@@ -392,8 +399,8 @@ req_path = os.path.join(base_path,"requirements.txt")
 
 def dist2package(dist: str):
     return ({
-        "gradio": "gradio",
-        "ruamel.yaml": "ruamel.yaml",
+        "PyYAML": "yaml",  # [P0] PyYAML 的导入名是 yaml，不映射会每次误判缺失触发 pip
+        # gradio/ruamel.yaml 已从 requirements 移除，对应死映射一并删除
     }).get(dist, dist)
 
 
@@ -405,7 +412,14 @@ def install_requirements(requirements_file_path):
                 package = package.strip()
                 if '==' in package:
                     package_name, package_version = package.split('==')
-                    installed_version = pkg_resources.get_distribution(package_name).version
+                    # 优先用标准库 importlib.metadata（setuptools>=81 已移除 pkg_resources）
+                    if _get_pkg_version is not None:
+                        try:
+                            installed_version = _get_pkg_version(package_name)
+                        except _PkgNotFoundError:
+                            installed_version = None
+                    else:
+                        installed_version = _pkg_resources.get_distribution(package_name).version
                     if installed_version != package_version:
                         launch.run_pip(f"install {package}", f"WeiLinComfyUIPromptAllInOne requirement: changing {package_name} version from {installed_version} to {package_version}")
                 elif not launch.is_installed(dist2package(package)):
@@ -416,27 +430,33 @@ def install_requirements(requirements_file_path):
 
 
 #安装原APP依赖
-print('WeiLinComfyUIPromptAllInOne 请求安装依赖中.......')
+# [P0-3] 依赖安装挪到后台守护线程：首次启动缺依赖不再卡住 ComfyUI 导入（方案P0-3）
+print('WeiLinComfyUIPromptAllInOne 后台安装依赖中.......')
 loadErr = 0
-try:
-    install_requirements(req_path)
-except:
-    loadErr = 1
-    print('WeiLinComfyUIPromptAllInOne 请求安装依赖失败 =======')
-if loadErr == 0:
-    print('WeiLinComfyUIPromptAllInOne 请求安装依赖成功 =======')
+def _bg_install_requirements():
+    global loadErr
+    try:
+        install_requirements(req_path)
+        print('WeiLinComfyUIPromptAllInOne 请求安装依赖成功 =======')
+    except:
+        loadErr = 1
+        print('WeiLinComfyUIPromptAllInOne 请求安装依赖失败 =======')
+threading.Thread(target=_bg_install_requirements, name="weilin-req", daemon=True).start()
 
 
 # 启动原APP
 from .sd_webui_prompt_all_in_one_app.app import app_start
 app_start()
+_mark("app_start")
 
 # 启动LoraInfo路由
 from .script.lorainfo import loraInfoApp
 loraInfoApp()
+_mark("loraInfoApp")
 # 启动LLM大模型路由
 from .script.llm_server import runLLMServerAPP 
 runLLMServerAPP()
+_mark("runLLMServerAPP")
 
 
 
@@ -481,7 +501,20 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {}
 
 # 检测系统语言
-localLan = locale.getdefaultlocale()[0]
+# [P0-4] locale.getdefaultlocale() 在 Python 3.13 已移除，改 getlocale + Windows API 兜底
+try:
+    localLan = locale.getlocale()[0]
+except Exception:
+    localLan = None
+if localLan is None:
+    try:
+        import ctypes
+        localLan = "zh_CN" if ctypes.windll.kernel32.GetUserDefaultUILanguage() == 0x0804 else "en_US"
+    except Exception:
+        localLan = "en_US"
+if localLan is None:
+    localLan = "en_US"
+
 if localLan == "zh_CN":
     NODE_DISPLAY_NAME_MAPPINGS = {
         "WeiLinPromptToString": "WeiLin 二合一提示词转String",
@@ -502,3 +535,16 @@ else:
 WEB_DIRECTORY = "./js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
+
+# [P1-2] 后台预热 lora 采样指纹（lora_index 缺失时静默跳过，不影响启动）
+try:
+    from .script.lora_index import warmup_loras_background, init as _lora_init
+    _lora_init(os.path.join(os.path.dirname(__file__), "lora_userdata"))
+    warmup_loras_background([folder_paths.get_full_path("loras", f)
+                             for f in folder_paths.get_filename_list("loras")])
+    _mark("lora warmup dispatched")
+except ImportError:
+    pass
+except Exception as _e:
+    print(f"[WeiLin] lora warmup skipped: {_e}")
+_mark("插件导入完成(总计)")

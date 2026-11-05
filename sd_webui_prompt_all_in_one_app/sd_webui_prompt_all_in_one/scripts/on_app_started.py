@@ -1,4 +1,4 @@
-import gradio as gr
+# [P0-1] 移除 gradio 导入（原先仅供 on_app_started 的类型注解使用，冷 import 1~3s）
 import os
 import sys
 from pathlib import Path
@@ -70,7 +70,7 @@ except Exception as e:
     pass
 
 
-def on_app_started(_: gr.Blocks):
+def on_app_started(*_args):
     st = Storage()
     hi = History()
     localLLMTransaltor=None
@@ -460,7 +460,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            addGroupTag(lang,data['cn'],data['en'],data['key'],data['group'])
+            await addGroupTag(lang,data['cn'],data['en'],data['key'],data['group'])
         except:
             return web.Response(status=500)
         
@@ -471,7 +471,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            editGroupTag(lang,data['cn'],data['en'],data['key'],data['group'])
+            await editGroupTag(lang,data['cn'],data['en'],data['key'],data['group'])
         except:
             return web.Response(status=500)
         
@@ -482,7 +482,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            deleteGroupTag(lang,data['cn'],data['en'],data['key'],data['group'])
+            await deleteGroupTag(lang,data['cn'],data['en'],data['key'],data['group'])
         except:
             return web.Response(status=500)
         
@@ -493,7 +493,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            addNewNodeGroup(lang,data['key'],data['group'],data['color'])
+            await addNewNodeGroup(lang,data['key'],data['group'],data['color'])
         except:
             return web.Response(status=500)
         
@@ -504,7 +504,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            addNewGroup(lang,data['key'],data['group'],data['color'])
+            await addNewGroup(lang,data['key'],data['group'],data['color'])
         except:
             return web.Response(status=500)
         
@@ -515,7 +515,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            editNodeGroup(lang,data['key'],data['group'])
+            await editNodeGroup(lang,data['key'],data['group'])
         except:
             return web.Response(status=500)
         
@@ -526,7 +526,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            editChildNodeGroup(lang,data['key'],data['group'],data['newgroup'])
+            await editChildNodeGroup(lang,data['key'],data['group'],data['newgroup'])
         except:
             return web.Response(status=500)
         
@@ -537,7 +537,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            deleteNodeGroup(lang,data['key'])
+            await deleteNodeGroup(lang,data['key'])
         except:
             return web.Response(status=500)
         
@@ -548,7 +548,7 @@ def on_app_started(_: gr.Blocks):
         lang = str(request.query.get('lang'))
         data = await request.json()
         try:
-            deleteChildNodeGroup(lang,data['key'],data['group'])
+            await deleteChildNodeGroup(lang,data['key'],data['group'])
         except:
             return web.Response(status=500)
         
